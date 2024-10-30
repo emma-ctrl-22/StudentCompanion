@@ -1,17 +1,198 @@
-import { StyleSheet, Text, View,SafeAreaView } from 'react-native'
-import React from 'react'
-
+import { StyleSheet, Text, View, SafeAreaView, TextInput, TouchableOpacity } from 'react-native';
+import React, { useState } from 'react';
+import Feather from '@expo/vector-icons/Feather';
+import MaterialIcons from '@expo/vector-icons/MaterialIcons';
+import { Calendar } from 'react-native-calendars';
+import dayjs from 'dayjs';
 export default function Home() {
+  const [currentDate, setCurrentDate] = useState(dayjs().format('YYYY-MM-DD'));
+  const handleMonthChange = (date: string) => {
+    setCurrentDate(date);
+  };
   return (
     <SafeAreaView style={styles.container}>
-      <Text>Home</Text>
+      <View style={styles.searchComponent}>
+        <TextInput placeholder='Search event here' placeholderTextColor="#c1c1c1" style={styles.searchbar} />
+        <TouchableOpacity style={styles.icon}>
+          <Feather name="search" size={24} color="#cade7f" />
+        </TouchableOpacity>
+        <TouchableOpacity style={styles.icon}>
+          <Feather name="plus" size={24} color="white" />
+        </TouchableOpacity>
+      </View>
+      <View style={styles.options}>
+        <View style={styles.top}>
+          <View style={styles.inner}>
+            <TouchableOpacity style={styles.lT}>
+              <Text style={{ fontSize: 25, textAlign: "center" }}>Explore</Text>
+              {/* <FontAwesome name="wpexplorer" size={40} color="black" /> */}
+            </TouchableOpacity>
+
+            <TouchableOpacity style={styles.lB}>
+              <Text style={{ fontSize: 18, fontWeight: "400" }}>My Events</Text>
+            </TouchableOpacity>
+          </View>
+          <View style={styles.inner}>
+            <TouchableOpacity style={styles.RT}>
+              <Text style={{ fontWeight: "bold" }}>Notes</Text>
+              <Text style={{ fontWeight: "300", fontSize: 23 }}>Write down personal notes</Text>
+            </TouchableOpacity>
+
+            <View style={styles.RB}>
+              <TouchableOpacity style={styles.Button1}>
+                <Feather name="plus" size={44} color="white" />
+              </TouchableOpacity>
+              <TouchableOpacity style={styles.Button2}>
+                <MaterialIcons name="report" size={44} color="white" />
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+        <TouchableOpacity style={styles.down}>
+
+          <Calendar
+            current={currentDate}
+            onDayPress={(day) => console.log("Selected Date: ", day.dateString)}
+            onMonthChange={(month) => handleMonthChange(month.dateString)}
+            theme={{
+              backgroundColor: '#633be9',
+              calendarBackground: '#633be9',
+              textSectionTitleColor: '#cade7f',
+              dayTextColor: '#cade7f',
+              monthTextColor: '#cade7f',
+              selectedDayBackgroundColor: '#cade7f',
+              selectedDayTextColor: '#1f1f1f',
+              arrowColor: '#cade7f',
+              todayTextColor: '#cade7f',
+            }}
+            style={{
+              borderWidth: 1,
+              borderColor: '#cade7f',
+              borderRadius: 10,
+              width: '100%'
+            }}
+          />
+        </TouchableOpacity>
+      </View>
     </SafeAreaView>
   )
 }
 
 const styles = StyleSheet.create({
-  container:{
-    backgroundColor:"#1c1c1c",
-    flex:1
-  }
+  container: {
+    backgroundColor: "#1c1c1c",
+    flex: 1,
+    alignItems: "center"
+  },
+  searchComponent: {
+    height: "10%",
+    width: "95%",
+    marginTop: "2%",
+    display: "flex",
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-evenly"
+  },
+  searchbar: {
+    backgroundColor: "#706656",
+    color: "white",
+    width: "70%",
+    height: "70%",
+    borderRadius: "50%",
+    paddingHorizontal: 20
+  },
+  icon: {
+    backgroundColor: "#706656",
+    padding: 10,
+    borderRadius: "50%"
+  },
+  options: {
+    height: "85%",
+    width: "95%",
+    marginTop: "2%",
+    display: "flex",
+    flexDirection: "column"
+  },
+  top: {
+    height: "56%",
+    display: "flex",
+    flexDirection: "row",
+    justifyContent: "space-between"
+  },
+  down: {
+    backgroundColor: "#633be9",
+    height: "40%",
+    borderRadius: 20,
+    display: "flex",
+   
+  },
+  inner: {
+    height: "100%",
+    width: "49%",
+    display: "flex",
+    flexDirection: "column",
+    justifyContent: "space-evenly"
+
+  },
+  lT: {
+    backgroundColor: "#e1d27c",
+    height: "30%",
+    borderRadius: 20,
+    display: "flex",
+    justifyContent: "center"
+  },
+  lB: {
+    backgroundColor: "#e1d27c",
+    height: "65%",
+    borderRadius: 20,
+    display: "flex",
+    flexDirection: "column",
+    padding: 20,
+    justifyContent: "space-between"
+  },
+  RT: {
+    backgroundColor: "#cade7f",
+    height: "65%",
+    borderRadius: 20,
+    padding: 20,
+    display: "flex",
+    flexDirection: "column",
+    justifyContent: "space-between"
+  },
+  RB: {
+    height: "30%",
+    display: "flex",
+    flexDirection: "row",
+    justifyContent: "space-between"
+  },
+  Button1: {
+    backgroundColor: "#dc4904",
+    width: "49%",
+    height: "100%",
+    borderRadius: 10,
+    display: "flex",
+    justifyContent: "center",
+    alignItems: "center"
+  },
+  Button2: {
+    backgroundColor: "#5bc296",
+    width: "49%",
+    height: "100%",
+    borderRadius: 10,
+    display: "flex",
+    justifyContent: "center",
+    alignItems: "center"
+  },
+  header: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    width: '90%',
+    paddingVertical: 10,
+  },
+  headerTitle: {
+    color: '#cade7f',
+    fontSize: 20,
+    fontWeight: 'bold',
+  },
 })

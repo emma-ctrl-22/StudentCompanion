@@ -25,7 +25,7 @@ const Header = () => (
         <Feather name="user" size={24} color="#cade7f" />
       </TouchableOpacity>
       <TouchableOpacity style={styles.icon}>
-        <Feather name="bell" size={24} color="#cade7f" />
+        <Feather name="bell" size={24} color="white" />
       </TouchableOpacity>
     </View>
   </SafeAreaView>
@@ -66,7 +66,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
   },
   icon: {
-    marginLeft: 15,
+    marginRight: 15,
     backgroundColor:"#706656",
     padding:10,
     borderRadius:"50%"
