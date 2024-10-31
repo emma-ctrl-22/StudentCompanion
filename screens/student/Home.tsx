@@ -4,11 +4,14 @@ import Feather from '@expo/vector-icons/Feather';
 import MaterialIcons from '@expo/vector-icons/MaterialIcons';
 import { Calendar } from 'react-native-calendars';
 import dayjs from 'dayjs';
+import { useNavigation } from '@react-navigation/native';
+
 export default function Home() {
   const [currentDate, setCurrentDate] = useState(dayjs().format('YYYY-MM-DD'));
   const handleMonthChange = (date: string) => {
     setCurrentDate(date);
   };
+  const navigation = useNavigation();
   return (
     <SafeAreaView style={styles.container}>
       <View style={styles.searchComponent}>
@@ -23,23 +26,23 @@ export default function Home() {
       <View style={styles.options}>
         <View style={styles.top}>
           <View style={styles.inner}>
-            <TouchableOpacity style={styles.lT}>
+            <TouchableOpacity onPress={()=>navigation.navigate('explore')} style={styles.lT}>
               <Text style={{ fontSize: 25, textAlign: "center" }}>Explore</Text>
               {/* <FontAwesome name="wpexplorer" size={40} color="black" /> */}
             </TouchableOpacity>
 
-            <TouchableOpacity style={styles.lB}>
+            <TouchableOpacity onPress={()=>navigation.navigate('myevent')} style={styles.lB}>
               <Text style={{ fontSize: 18, fontWeight: "400" }}>My Events</Text>
             </TouchableOpacity>
           </View>
           <View style={styles.inner}>
-            <TouchableOpacity style={styles.RT}>
+            <TouchableOpacity onPress={()=>navigation.navigate('Note')} style={styles.RT}>
               <Text style={{ fontWeight: "bold" }}>Notes</Text>
               <Text style={{ fontWeight: "300", fontSize: 23 }}>Write down personal notes</Text>
             </TouchableOpacity>
 
             <View style={styles.RB}>
-              <TouchableOpacity style={styles.Button1}>
+              <TouchableOpacity onPress={()=>navigation.navigate('create')} style={styles.Button1}>
                 <Feather name="plus" size={44} color="white" />
               </TouchableOpacity>
               <TouchableOpacity style={styles.Button2}>
@@ -48,7 +51,7 @@ export default function Home() {
             </View>
           </View>
         </View>
-        <TouchableOpacity style={styles.down}>
+        <TouchableOpacity onPress={()=>navigation.navigate('calendar')} style={styles.down}>
 
           <Calendar
             current={currentDate}
@@ -66,8 +69,6 @@ export default function Home() {
               todayTextColor: '#cade7f',
             }}
             style={{
-              borderWidth: 1,
-              borderColor: '#cade7f',
               borderRadius: 10,
               width: '100%'
             }}

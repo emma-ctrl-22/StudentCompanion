@@ -1,7 +1,7 @@
 import React from 'react';
 import { View, Image, TouchableOpacity, StyleSheet,SafeAreaView } from 'react-native';
 import { createStackNavigator } from '@react-navigation/stack';
-import { Home, CreateEvent, Calendar, Explore, MyEvent, EventDetails } from '../screens/student';
+import { Home,CreateEvent,Calendar,Explore,MyEvent,EventDetails,Note,NoteDetailScreen } from '../screens/student';
 import Feather from '@expo/vector-icons/Feather';
 import Logo from '../assets/logo-events.png';
 
@@ -12,6 +12,8 @@ export type UserStackParamList = {
   explore: undefined;
   calendar: undefined;
   myevent: undefined;
+  Note: undefined;
+  NoteDetail: {title:string,date:string,color:string}
 };
 
 const Stack = createStackNavigator<UserStackParamList>();
@@ -43,6 +45,8 @@ const UserStack = () => (
     <Stack.Screen name="calendar" component={Calendar} />
     <Stack.Screen name="myevent" component={MyEvent} />
     <Stack.Screen name="EventDetails" component={EventDetails} />
+    <Stack.Screen name="Note" component={Note} />
+    <Stack.Screen name="NoteDetail" component={NoteDetailScreen} />
   </Stack.Navigator>
 );
 
