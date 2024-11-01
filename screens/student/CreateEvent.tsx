@@ -6,7 +6,7 @@ import MapView, { Marker } from 'react-native-maps';
 import DateTimePicker from '@react-native-community/datetimepicker';
 import Feather from '@expo/vector-icons/Feather';
 
-export default function CreateEvent() {
+export default function CreateEvent({navigation}) {
   const [eventName, setEventName] = useState('');
   const [eventDate, setEventDate] = useState(new Date());
   const [showDatePicker, setShowDatePicker] = useState(false);
@@ -62,7 +62,10 @@ export default function CreateEvent() {
 
   return (
     <ScrollView contentContainerStyle={styles.container}>
-      <Text style={styles.header}>Create New Event</Text>
+      <View style={styles.header}>
+        <Feather name="arrow-left" size={24} color="#fff" onPress={() => navigation.goBack()} />
+        <Text style={styles.headerTitle}>Create Events</Text>
+      </View>
 
       <TouchableOpacity style={styles.imagePicker} onPress={pickImage}>
         {coverImage ? (
@@ -144,10 +147,16 @@ const styles = StyleSheet.create({
     flexGrow: 1,
   },
   header: {
-    color: '#FFCD3C',
-    fontSize: 28,
-    fontWeight: 'bold',
+    flexDirection: 'row',
+    alignItems: 'center',
     marginBottom: 20,
+    backgroundColor: '#1c1c1c',
+  },
+  headerTitle: {
+    color: '#fff',
+    fontSize: 22,
+    fontWeight: 'bold',
+    marginLeft: 10,
   },
   imagePicker: {
     backgroundColor: '#333',

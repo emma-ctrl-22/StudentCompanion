@@ -58,12 +58,12 @@ export default function Home() {
             onDayPress={(day) => console.log("Selected Date: ", day.dateString)}
             onMonthChange={(month) => handleMonthChange(month.dateString)}
             theme={{
-              backgroundColor: '#633be9',
-              calendarBackground: '#633be9',
+              backgroundColor: '#673ceb',
+              calendarBackground: '#673ceb',
               textSectionTitleColor: '#cade7f',
               dayTextColor: '#cade7f',
               monthTextColor: '#cade7f',
-              selectedDayBackgroundColor: '#cade7f',
+              selectedDayBackgroundColor: '#e1d27c',
               selectedDayTextColor: '#1f1f1f',
               arrowColor: '#cade7f',
               todayTextColor: '#cade7f',
@@ -121,7 +121,7 @@ const styles = StyleSheet.create({
     justifyContent: "space-between"
   },
   down: {
-    backgroundColor: "#633be9",
+    backgroundColor: "#673ceb",
     height: "40%",
     borderRadius: 20,
     display: "flex",

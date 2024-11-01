@@ -1,7 +1,7 @@
 import React from 'react';
 import { View, Image, TouchableOpacity, StyleSheet,SafeAreaView } from 'react-native';
 import { createStackNavigator } from '@react-navigation/stack';
-import { Home,CreateEvent,Calendar,Explore,MyEvent,EventDetails,Note,NoteDetailScreen } from '../screens/student';
+import { Home,CreateEvent,Calendar,Explore,MyEvent,EventDetails,Note,NoteDetailScreen,Profile } from '../screens/student';
 import Feather from '@expo/vector-icons/Feather';
 import Logo from '../assets/logo-events.png';
 
@@ -47,6 +47,7 @@ const UserStack = () => (
     <Stack.Screen name="EventDetails" component={EventDetails} />
     <Stack.Screen name="Note" component={Note} />
     <Stack.Screen name="NoteDetail" component={NoteDetailScreen} />
+    <Stack.Screen name="Profile" component={Profile} />
   </Stack.Navigator>
 );
 
