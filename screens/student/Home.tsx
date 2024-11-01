@@ -19,7 +19,7 @@ export default function Home() {
         <TouchableOpacity style={styles.icon}>
           <Feather name="search" size={24} color="#cade7f" />
         </TouchableOpacity>
-        <TouchableOpacity style={styles.icon}>
+        <TouchableOpacity onPress={()=>navigation.navigate('create')} style={styles.icon}>
           <Feather name="plus" size={24} color="white" />
         </TouchableOpacity>
       </View>

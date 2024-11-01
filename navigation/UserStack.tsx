@@ -4,7 +4,7 @@ import { createStackNavigator } from '@react-navigation/stack';
 import { Home,CreateEvent,Calendar,Explore,MyEvent,EventDetails,Note,NoteDetailScreen,Profile } from '../screens/student';
 import Feather from '@expo/vector-icons/Feather';
 import Logo from '../assets/logo-events.png';
-
+import { useNavigation } from '@react-navigation/native';
 export type UserStackParamList = {
   Home: undefined;
   EventDetails: { eventId: string };
@@ -14,16 +14,20 @@ export type UserStackParamList = {
   myevent: undefined;
   Note: undefined;
   NoteDetail: {title:string,date:string,color:string}
+  Profile: undefined;
 };
 
 const Stack = createStackNavigator<UserStackParamList>();
 
 // Custom Header Component
-const Header = () => (
+const Header = () =>{ 
+  
+  const navigation = useNavigation();
+  return(
   <SafeAreaView style={styles.headerContainer}>
     <Image source={Logo} style={styles.logo} />
     <View style={styles.headerIcons}>
-      <TouchableOpacity style={styles.icon}>
+      <TouchableOpacity onPress={()=>navigation.navigate('Profile')} style={styles.icon}>
         <Feather name="user" size={24} color="#cade7f" />
       </TouchableOpacity>
       <TouchableOpacity style={styles.icon}>
@@ -31,9 +35,10 @@ const Header = () => (
       </TouchableOpacity>
     </View>
   </SafeAreaView>
-);
+)};
 
 const UserStack = () => (
+  
   <Stack.Navigator
     screenOptions={{
       header: () => <Header />, // Apply custom header to all screens
