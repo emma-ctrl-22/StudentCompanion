@@ -91,7 +91,7 @@ const styles = StyleSheet.create({
     },
     noteContainer: {
         flex: 1,
-        margin: 8,
+        margin: 5,
         padding: 16,
         borderRadius: 12,
         minHeight: 100,
