@@ -1,7 +1,10 @@
-import React from 'react';
-import { View, Text, FlatList, TouchableOpacity, StyleSheet } from 'react-native';
-import { useNavigation } from '@react-navigation/native';
+import React, { useCallback, useState } from 'react';
+import { View, Text, FlatList, TouchableOpacity, StyleSheet, Alert, ActivityIndicator } from 'react-native';
+import AsyncStorage from '@react-native-async-storage/async-storage';
+import { useNavigation, useFocusEffect } from '@react-navigation/native';
 import { MaterialIcons } from '@expo/vector-icons';
+import { db } from '../../firebase';
+import { collection, query, where, getDocs } from 'firebase/firestore';
 
 interface Note {
     id: string;
@@ -9,25 +12,63 @@ interface Note {
     date: string;
     color: string;
 }
-interface NoteDetail { title: string, date: string, color: string }
 
-const sampleNotes: Note[] = [
-    { id: '1', title: 'Design System Components', date: 'May 21', color: '#8e8efa' },
-    { id: '2', title: 'Interaction Design Principles', date: 'May 21', color: '#b0e57c' },
-    { id: '3', title: 'Onboarding Experience Enhancements', date: 'May 21', color: '#f9d26a' },
-    { id: '4', title: 'Responsive Design Strategies', date: 'May 21', color: '#f89c8d' },
-    { id: '5', title: 'Information Architecture', date: 'May 21', color: '#b0e57c' },
-    { id: '6', title: 'Usability Testing Feedback', date: 'May 21', color: '#8e8efa' },
-    { id: '7', title: 'Typography and Readability', date: 'May 21', color: '#91d7ff' },
-];
+const COLORS = ['#8e8efa', '#b0e57c', '#f9d26a', '#f89c8d', '#91d7ff'];
 
 const NotesScreen = () => {
     const navigation = useNavigation();
+    const [notes, setNotes] = useState<Note[]>([]);
+    const [loading, setLoading] = useState(false);
 
+    // Function to fetch user UID from AsyncStorage
+    const getUserUID = async () => {
+        try {
+            const user = await AsyncStorage.getItem('user');
+            if (!user) {
+                Alert.alert('Error', 'User UID not found. Please log in again.');
+                return null;
+            }
+            const parsedUser = JSON.parse(user);
+            return parsedUser.uid;
+        } catch (error) {
+            console.error('Error fetching user UID:', error);
+            Alert.alert('Error', 'Failed to retrieve user information.');
+            return null;
+        }
+    };
+
+    // Function to fetch notes from Firestore
+    const fetchNotes = async () => {
+        setLoading(true);
+        const userUID = await getUserUID();
+        if (!userUID) return;
+
+        try {
+            const notesQuery = query(collection(db, 'notes'), where('author', '==', userUID));
+            const querySnapshot = await getDocs(notesQuery);
+
+            const fetchedNotes: Note[] = querySnapshot.docs.map((doc) => ({
+                id: doc.id,
+                title: doc.data().title,
+                date: doc.data().timestamp.toDate().toLocaleDateString(),
+                color: COLORS[Math.floor(Math.random() * COLORS.length)],
+            }));
+
+            setNotes(fetchedNotes);
+        } catch (error) {
+            console.error('Error fetching notes:', error);
+            Alert.alert('Error', 'Failed to load notes.');
+        } finally {
+            setLoading(false);
+        }
+    };
+
+    // Navigate to note detail screen
     const navigateToDetail = (note: Note) => {
         navigation.navigate('NoteDetail', { title: note.title, date: note.date, color: note.color });
     };
 
+    // Render a single note item
     const renderNote = ({ item }: { item: Note }) => (
         <TouchableOpacity
             style={[styles.noteContainer, { backgroundColor: item.color }]}
@@ -38,23 +79,44 @@ const NotesScreen = () => {
         </TouchableOpacity>
     );
 
+    // Use useFocusEffect to fetch notes when the screen is focused
+    useFocusEffect(
+        useCallback(() => {
+            fetchNotes();
+        }, [])
+    );
+
     return (
         <View style={styles.container}>
             <View style={styles.header}>
                 <MaterialIcons name="arrow-back" size={28} color="white" onPress={() => navigation.goBack()} />
                 <Text style={styles.headerTitle}>Notes</Text>
                 <View style={styles.headerIcons}>
-                    <MaterialIcons name="add" size={28} color="white" style={styles.icon} />
-                    
+                    <MaterialIcons
+                        name="add"
+                        size={28}
+                        color="white"
+                        style={styles.icon}
+                        onPress={() => navigation.navigate('AddNote')}
+                    />
                 </View>
             </View>
-            <FlatList
-                data={sampleNotes}
-                keyExtractor={(item) => item.id}
-                renderItem={renderNote}
-                contentContainerStyle={styles.notesList}
-                numColumns={2}
-            />
+
+            {loading ? (
+                <View style={styles.loadingContainer}>
+                    <ActivityIndicator size="large" color="#8e8efa" />
+                    <Text style={styles.loadingText}>Loading notes...</Text>
+                </View>
+            ) : (
+                <FlatList
+                    data={notes}
+                    keyExtractor={(item) => item.id}
+                    renderItem={renderNote}
+                    contentContainerStyle={styles.notesList}
+                    numColumns={2}
+                    ListEmptyComponent={<Text style={styles.emptyText}>No notes found. Add a new note!</Text>}
+                />
+            )}
         </View>
     );
 };
@@ -106,5 +168,21 @@ const styles = StyleSheet.create({
         color: '#dcdcdc',
         fontSize: 12,
         textAlign: 'right',
+    },
+    emptyText: {
+        color: '#dcdcdc',
+        fontSize: 16,
+        textAlign: 'center',
+        marginTop: 20,
+    },
+    loadingContainer: {
+        flex: 1,
+        justifyContent: 'center',
+        alignItems: 'center',
+    },
+    loadingText: {
+        color: '#dcdcdc',
+        fontSize: 16,
+        marginTop: 10,
     },
 });
