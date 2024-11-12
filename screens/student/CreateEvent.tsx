@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { StyleSheet, Text, View, TextInput, TouchableOpacity, ScrollView, Image, Alert } from 'react-native';
+import { StyleSheet, Text, View, TextInput, TouchableOpacity, ScrollView, Image, Alert, ActivityIndicator } from 'react-native';
 import * as ImagePicker from 'expo-image-picker';
 import * as Location from 'expo-location';
 import MapView, { Marker } from 'react-native-maps';
@@ -9,8 +9,9 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
 import { storage, db } from '../../firebase'; // Ensure you have Firebase configured
 import { collection, addDoc } from 'firebase/firestore';
+import { useNavigation } from '@react-navigation/native';
 
-export default function CreateEvent({ navigation }) {
+export default function CreateEvent() {
   const [eventName, setEventName] = useState('');
   const [eventDate, setEventDate] = useState(new Date());
   const [showDatePicker, setShowDatePicker] = useState(false);
@@ -23,29 +24,31 @@ export default function CreateEvent({ navigation }) {
   const [showMap, setShowMap] = useState(false);
   const [isFree, setIsFree] = useState(true);
   const [price, setPrice] = useState('');
-
+  const [eventType, setEventType] = useState('sports'); // Default event type
+  const [isLoading, setIsLoading] = useState(false);
+  const navigation = useNavigation();
   // Image picker function
   // Image picker function
-const pickImage = async () => {
-  // Request media library permissions
-  const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
-  if (status !== 'granted') {
-    alert('Permission to access media library was denied. Please enable permissions in settings.');
-    return;
-  }
+  const pickImage = async () => {
+    // Request media library permissions
+    const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
+    if (status !== 'granted') {
+      alert('Permission to access media library was denied. Please enable permissions in settings.');
+      return;
+    }
 
-  // Launch the image picker
-  let result = await ImagePicker.launchImageLibraryAsync({
-    mediaTypes: ImagePicker.MediaTypeOptions.Images,
-    allowsEditing: true,
-    quality: 1,
-  });
+    // Launch the image picker
+    let result = await ImagePicker.launchImageLibraryAsync({
+      mediaTypes: ImagePicker.MediaTypeOptions.Images,
+      allowsEditing: true,
+      quality: 1,
+    });
 
-  if (!result.canceled && result.assets && result.assets.length > 0) {
-    const selectedImage = result.assets[0]; // Access the first selected asset
-    setCoverImage(selectedImage.uri); // Set the URI of the selected image
-  }
-};
+    if (!result.canceled && result.assets && result.assets.length > 0) {
+      const selectedImage = result.assets[0]; // Access the first selected asset
+      setCoverImage(selectedImage.uri); // Set the URI of the selected image
+    }
+  };
 
 
   // Open the map to select location
@@ -106,11 +109,29 @@ const pickImage = async () => {
     );
   };
 
+  const chooseEventType = () => {
+    Alert.alert(
+      'Choose Event Type',
+      'Select the type of event:',
+      [
+        { text: 'Sports', onPress: () => setEventType('Sports') },
+        { text: 'Food', onPress: () => setEventType('Food') },
+        { text: 'Entertainment', onPress: () => setEventType('Entertainment') },
+        { text: 'Educational', onPress: () => setEventType('Educational') },
+        { text: 'Cancel', style: 'cancel' },
+      ],
+      { cancelable: true }
+    );
+  };
+  
+
   const handleCreateEvent = async () => {
+    setIsLoading(true);
     // Retrieve the user UID from AsyncStorage
     const user = await AsyncStorage.getItem('user'); // Assuming you store UID under 'userUID'
     if (!user) {
       alert('User UID not found. Please log in again.');
+      setIsLoading(false);
       return;
     }
     const parsedUser = JSON.parse(user);
@@ -130,6 +151,7 @@ const pickImage = async () => {
       } catch (error) {
         console.error('Error uploading image:', error);
         alert('Failed to upload image. Please try again.');
+        setIsLoading(false);
         return;
       }
     }
@@ -145,7 +167,8 @@ const pickImage = async () => {
       isFree,
       price: isFree ? 0 : parseFloat(price),
       coverImage: imageUrl,
-      author: userUID, // Add the userUID as the author
+      eventType,
+      author: userUID,
     };
 
     console.log('Event Created:', eventData);
@@ -159,6 +182,7 @@ const pickImage = async () => {
       console.error('Error creating event:', error);
       alert('Error creating event. Please try again.');
     }
+    setIsLoading(false);
   };
 
   return (
@@ -174,14 +198,14 @@ const pickImage = async () => {
         ) : (
           <Text style={styles.imagePickerText}>Pick Cover Image</Text>
         )}
-      </TouchableOpacity> 
-        <TextInput
-          style={styles.input}
-          placeholder="Event Name"
-          placeholderTextColor="#a0a0a0"
-          value={eventName}
-          onChangeText={setEventName}
-        />
+      </TouchableOpacity>
+      <TextInput
+        style={styles.input}
+        placeholder="Event Name"
+        placeholderTextColor="#a0a0a0"
+        value={eventName}
+        onChangeText={setEventName}
+      />
       <TouchableOpacity style={styles.inputGroup} onPress={() => setShowDatePicker(true)}>
         <Feather name="calendar" size={20} color="#58CC02" />
         <Text style={styles.inputText}>{eventDate.toDateString()}</Text>
@@ -200,15 +224,15 @@ const pickImage = async () => {
         <Feather name="map-pin" size={20} color="#56B4D3" />
         <Text style={styles.inputText}>{locationName || (location ? `Lat: ${location.latitude}, Lng: ${location.longitude}` : 'Pick Location')}</Text>
       </TouchableOpacity>
-        <TextInput
-          style={styles.input}
-          placeholder="Description"
-          placeholderTextColor="#a0a0a0"
-          multiline
-          numberOfLines={4}
-          value={description}
-          onChangeText={setDescription}
-        />
+      <TextInput
+        style={styles.input}
+        placeholder="Description"
+        placeholderTextColor="#a0a0a0"
+        multiline
+        numberOfLines={4}
+        value={description}
+        onChangeText={setDescription}
+      />
 
       <TouchableOpacity style={styles.inputGroup} onPress={handleFreeOrPaid}>
         <Feather name="compass" size={20} color="#58CC02" />
@@ -216,20 +240,30 @@ const pickImage = async () => {
       </TouchableOpacity>
 
       {!isFree && (
-       
-          <TextInput
-            style={styles.input}
-            placeholder="Enter Price"
-            placeholderTextColor="#a0a0a0"
-            keyboardType="numeric"
-            value={price}
-            onChangeText={setPrice}
-          />
-       
+
+        <TextInput
+          style={styles.input}
+          placeholder="Enter Price"
+          placeholderTextColor="#a0a0a0"
+          keyboardType="numeric"
+          value={price}
+          onChangeText={setPrice}
+        />
+
       )}
 
+      <TouchableOpacity style={styles.inputGroup} onPress={chooseEventType}>
+        <Feather name="tag" size={20} color="#6A5ACD" />
+        <Text style={styles.inputText}>{eventType || 'Choose Event Type'}</Text>
+      </TouchableOpacity>
+
+
       <TouchableOpacity style={styles.createButton} onPress={handleCreateEvent}>
-        <Text style={styles.createButtonText}>Create Event</Text>
+        {isLoading ? (
+          <ActivityIndicator size="small" color="#fff" />
+        ) : (
+          <Text style={styles.createButtonText}>Create Event</Text>
+        )}
       </TouchableOpacity>
 
       {showMap && (
