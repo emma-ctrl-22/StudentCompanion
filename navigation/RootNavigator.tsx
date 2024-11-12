@@ -1,14 +1,19 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import { NavigationContainer } from '@react-navigation/native';
 import { createStackNavigator } from '@react-navigation/stack';
 import AuthStack from './AuthStack';
 import UserStack from './UserStack';
 import AdminStack from './AdminStack';
-
+import { useAuth } from '../context/AuthContext';
 const RootStack = createStackNavigator();
 
 const RootNavigator = () => {
-  const userRole = 'user'; // Placeholder for role-based logic, e.g., 'user', 'admin', 'guest'
+  const { userRole } = useAuth();
+
+  if (userRole === null) {
+    // You can return a loading indicator here while AsyncStorage is being checked
+    return null;
+  }
 
   return (
     <NavigationContainer>

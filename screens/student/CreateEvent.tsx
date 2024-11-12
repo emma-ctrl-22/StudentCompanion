@@ -1,34 +1,52 @@
 import React, { useState } from 'react';
-import { StyleSheet, Text, View, TextInput, TouchableOpacity, ScrollView, Image } from 'react-native';
+import { StyleSheet, Text, View, TextInput, TouchableOpacity, ScrollView, Image, Alert } from 'react-native';
 import * as ImagePicker from 'expo-image-picker';
 import * as Location from 'expo-location';
 import MapView, { Marker } from 'react-native-maps';
 import DateTimePicker from '@react-native-community/datetimepicker';
 import Feather from '@expo/vector-icons/Feather';
+import AsyncStorage from '@react-native-async-storage/async-storage';
+import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
+import { storage, db } from '../../firebase'; // Ensure you have Firebase configured
+import { collection, addDoc } from 'firebase/firestore';
 
-export default function CreateEvent({navigation}) {
+export default function CreateEvent({ navigation }) {
   const [eventName, setEventName] = useState('');
   const [eventDate, setEventDate] = useState(new Date());
   const [showDatePicker, setShowDatePicker] = useState(false);
   const [eventTime, setEventTime] = useState(new Date());
   const [showTimePicker, setShowTimePicker] = useState(false);
   const [location, setLocation] = useState(null);
+  const [locationName, setLocationName] = useState('');
   const [description, setDescription] = useState('');
   const [coverImage, setCoverImage] = useState<string | null>(null);
   const [showMap, setShowMap] = useState(false);
+  const [isFree, setIsFree] = useState(true);
+  const [price, setPrice] = useState('');
 
   // Image picker function
-  const pickImage = async () => {
-    let result = await ImagePicker.launchImageLibraryAsync({
-      mediaTypes: ImagePicker.MediaTypeOptions.Images,
-      allowsEditing: true,
-      quality: 1,
-    });
+  // Image picker function
+const pickImage = async () => {
+  // Request media library permissions
+  const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
+  if (status !== 'granted') {
+    alert('Permission to access media library was denied. Please enable permissions in settings.');
+    return;
+  }
 
-    if (!result.cancelled) {
-      setCoverImage(result.uri);
-    }
-  };
+  // Launch the image picker
+  let result = await ImagePicker.launchImageLibraryAsync({
+    mediaTypes: ImagePicker.MediaTypeOptions.Images,
+    allowsEditing: true,
+    quality: 1,
+  });
+
+  if (!result.canceled && result.assets && result.assets.length > 0) {
+    const selectedImage = result.assets[0]; // Access the first selected asset
+    setCoverImage(selectedImage.uri); // Set the URI of the selected image
+  }
+};
+
 
   // Open the map to select location
   const pickLocation = async () => {
@@ -40,9 +58,18 @@ export default function CreateEvent({navigation}) {
     setShowMap(true);
   };
 
+  // Get location name using reverse geolocation
+  const getLocationName = async (latitude: number, longitude: number) => {
+    const geoCode = await Location.reverseGeocodeAsync({ latitude, longitude });
+    if (geoCode.length > 0) {
+      setLocationName(geoCode[0].city || geoCode[0].region || geoCode[0].country || 'Unknown Location');
+    }
+  };
+
   // Confirm location selection from map
   const confirmLocation = (selectedLocation: { latitude: number; longitude: number }) => {
     setLocation(selectedLocation);
+    getLocationName(selectedLocation.latitude, selectedLocation.longitude);
     setShowMap(false);
   };
 
@@ -56,8 +83,82 @@ export default function CreateEvent({navigation}) {
     if (selectedTime) setEventTime(selectedTime);
   };
 
-  const handleCreateEvent = () => {
-    console.log('Event Created:', { eventName, eventDate, eventTime, location, description, coverImage });
+  const handleFreeOrPaid = () => {
+    Alert.alert(
+      "Event Type",
+      "Is this event free or paid?",
+      [
+        {
+          text: "Free",
+          onPress: () => {
+            setIsFree(true);
+            setPrice('0'); // Reset price to 0 if the event is free
+          }
+        },
+        {
+          text: "Paid",
+          onPress: () => {
+            setIsFree(false);
+            setPrice(''); // Reset price if changing to paid event
+          }
+        },
+      ]
+    );
+  };
+
+  const handleCreateEvent = async () => {
+    // Retrieve the user UID from AsyncStorage
+    const user = await AsyncStorage.getItem('user'); // Assuming you store UID under 'userUID'
+    if (!user) {
+      alert('User UID not found. Please log in again.');
+      return;
+    }
+    const parsedUser = JSON.parse(user);
+    const userUID = parsedUser.uid;
+
+    // Upload the image to Firebase Storage
+    let imageUrl = '';
+    if (coverImage) {
+      console.log('Selected Image URI:', coverImage);
+
+      try {
+        const response = await fetch(coverImage);
+        const blob = await response.blob();
+        const storageRef = ref(storage, `events/${eventName}-${Date.now()}.jpg`);
+        await uploadBytes(storageRef, blob);
+        imageUrl = await getDownloadURL(storageRef);
+      } catch (error) {
+        console.error('Error uploading image:', error);
+        alert('Failed to upload image. Please try again.');
+        return;
+      }
+    }
+
+    // Save event details to Firestore
+    const eventData = {
+      eventName,
+      eventDate,
+      eventTime,
+      location,
+      locationName,
+      description,
+      isFree,
+      price: isFree ? 0 : parseFloat(price),
+      coverImage: imageUrl,
+      author: userUID, // Add the userUID as the author
+    };
+
+    console.log('Event Created:', eventData);
+
+    // Save to Firestore (using the collection and addDoc methods)
+    try {
+      await addDoc(collection(db, 'events'), eventData);
+      alert('Event created successfully!');
+      navigation.goBack(); // Navigate back after saving
+    } catch (error) {
+      console.error('Error creating event:', error);
+      alert('Error creating event. Please try again.');
+    }
   };
 
   return (
@@ -73,10 +174,7 @@ export default function CreateEvent({navigation}) {
         ) : (
           <Text style={styles.imagePickerText}>Pick Cover Image</Text>
         )}
-      </TouchableOpacity>
-
-      <View style={styles.inputGroup}>
-        <Feather name="edit" size={20} color="#FFCD3C" />
+      </TouchableOpacity> 
         <TextInput
           style={styles.input}
           placeholder="Event Name"
@@ -84,8 +182,6 @@ export default function CreateEvent({navigation}) {
           value={eventName}
           onChangeText={setEventName}
         />
-      </View>
-
       <TouchableOpacity style={styles.inputGroup} onPress={() => setShowDatePicker(true)}>
         <Feather name="calendar" size={20} color="#58CC02" />
         <Text style={styles.inputText}>{eventDate.toDateString()}</Text>
@@ -102,11 +198,8 @@ export default function CreateEvent({navigation}) {
 
       <TouchableOpacity style={styles.inputGroup} onPress={pickLocation}>
         <Feather name="map-pin" size={20} color="#56B4D3" />
-        <Text style={styles.inputText}>{location ? `Lat: ${location.latitude}, Lng: ${location.longitude}` : 'Pick Location'}</Text>
+        <Text style={styles.inputText}>{locationName || (location ? `Lat: ${location.latitude}, Lng: ${location.longitude}` : 'Pick Location')}</Text>
       </TouchableOpacity>
-
-      <View style={styles.inputGroup}>
-        <Feather name="file-text" size={20} color="#8E44AD" />
         <TextInput
           style={styles.input}
           placeholder="Description"
@@ -116,7 +209,24 @@ export default function CreateEvent({navigation}) {
           value={description}
           onChangeText={setDescription}
         />
-      </View>
+
+      <TouchableOpacity style={styles.inputGroup} onPress={handleFreeOrPaid}>
+        <Feather name="compass" size={20} color="#58CC02" />
+        <Text style={styles.inputText}>{isFree ? "Free" : `Price: ${price}`}</Text>
+      </TouchableOpacity>
+
+      {!isFree && (
+       
+          <TextInput
+            style={styles.input}
+            placeholder="Enter Price"
+            placeholderTextColor="#a0a0a0"
+            keyboardType="numeric"
+            value={price}
+            onChangeText={setPrice}
+          />
+       
+      )}
 
       <TouchableOpacity style={styles.createButton} onPress={handleCreateEvent}>
         <Text style={styles.createButtonText}>Create Event</Text>
@@ -126,8 +236,8 @@ export default function CreateEvent({navigation}) {
         <MapView
           style={styles.map}
           initialRegion={{
-            latitude: 37.78825,
-            longitude: -122.4324,
+            latitude: location ? location.latitude : 37.78825,
+            longitude: location ? location.longitude : -122.4324,
             latitudeDelta: 0.0922,
             longitudeDelta: 0.0421,
           }}
@@ -142,73 +252,81 @@ export default function CreateEvent({navigation}) {
 
 const styles = StyleSheet.create({
   container: {
-    backgroundColor: '#1f1f1f',
-    padding: 20,
     flexGrow: 1,
+    padding: 16,
+    backgroundColor: '#1c1c1c',
   },
   header: {
     flexDirection: 'row',
     alignItems: 'center',
-    marginBottom: 20,
-    backgroundColor: '#1c1c1c',
+    marginBottom: 16,
+    color: '#fff',
   },
   headerTitle: {
-    color: '#fff',
-    fontSize: 22,
+    fontSize: 24,
     fontWeight: 'bold',
-    marginLeft: 10,
+    marginLeft: 8,
+    color: '#fff',
   },
   imagePicker: {
-    backgroundColor: '#333',
-    height: 200,
+    marginBottom: 16,
+    borderWidth: 1,
+    borderColor: '#ddd',
     borderRadius: 8,
-    alignItems: 'center',
+    height: 200,
     justifyContent: 'center',
-    marginBottom: 15,
-  },
-  imagePickerText: {
-    color: '#a0a0a0',
-    fontSize: 16,
+    alignItems: 'center',
   },
   coverImage: {
     width: '100%',
     height: '100%',
     borderRadius: 8,
   },
+  imagePickerText: {
+    color: '#888',
+    fontSize: 16,
+  },
   inputGroup: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#333',
+    marginBottom: 16,
+    borderColor: '#ddd',
+    borderWidth: 1,
     borderRadius: 8,
-    paddingVertical: 15,
-    paddingHorizontal: 15,
-    marginBottom: 15,
+    padding: 8,
   },
   input: {
-    color: '#FFCD3C',
-    fontSize: 16,
     flex: 1,
-    marginLeft: 10,
+    height: 50,
+    borderColor: '#ddd',
+    borderWidth: 1,
+    borderRadius: 8,
+    paddingLeft: 8,
+    fontSize: 16,
+    color: '#fff',
+    marginBottom: 16,
+    paddingHorizontal: 10,
   },
   inputText: {
-    color: '#FFCD3C',
+    flex: 1,
     fontSize: 16,
-    marginLeft: 10,
+    color: '#fff',
   },
   createButton: {
-    backgroundColor: '#cade7f',
+    backgroundColor: '#58CC02',
+    paddingVertical: 12,
     borderRadius: 8,
-    paddingVertical: 15,
     alignItems: 'center',
-    marginTop: 20,
   },
   createButtonText: {
-    color: '#000',
+    color: '#fff',
     fontSize: 18,
-    fontWeight: '600',
+    fontWeight: 'bold',
   },
   map: {
-    ...StyleSheet.absoluteFillObject,
-    zIndex: 10,
+    width: '100%',
+    height: 200,
+    marginTop: 16,
+    borderRadius: 8,
   },
 });

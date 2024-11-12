@@ -1,17 +1,23 @@
-import { StyleSheet, Text, View, SafeAreaView, TextInput, Image, TouchableOpacity } from 'react-native'
+import { StyleSheet, Text, View, SafeAreaView, TextInput, Image, TouchableOpacity,Alert } from 'react-native'
 import React, { useState } from 'react'
 import Feather from '@expo/vector-icons/Feather';
 import { useNavigation } from '@react-navigation/native';
 import Logo from '../../assets/logo-events.png'
+import { useAuth } from '../../context/AuthContext';
 
 export default function Login() {
-  const navigation = useNavigation();
-  const [email, setEmail] = useState<string>()
-  const [password, setPassword] = useState<string>()
+  const [studentId, setStudentId] = useState<string>('');
+  const [password, setPassword] = useState<string>('');
+  const { login } = useAuth(); // Destructure login from AuthContext
 
-  const handleLogin = () => {
-    console.log('Login')
-  }
+  const handleLogin = async () => {
+    try {
+      await login(studentId, password); // Call login function with studentId and password
+    } catch (error) {
+      Alert.alert('Login Error', 'Unable to log in. Please check your credentials and try again.');
+    }
+  };
+
   return (
     <SafeAreaView style={styles.container}>
       <Image style={{ width: "60%", height: "30%" }} source={Logo} />
@@ -19,8 +25,8 @@ export default function Login() {
         <View style={styles.inputGroup}>
           <Feather name="user" size={24} color="#cade7f" style={styles.sideIcon} />
           <TextInput
-            value={email}
-            onChangeText={(text) => setEmail(text)}
+            value={studentId}
+            onChangeText={(text) => setStudentId(text)}
             style={styles.input}
             placeholder="Enter your student ID"
             keyboardType="email-address"
