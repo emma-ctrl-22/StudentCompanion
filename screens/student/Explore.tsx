@@ -1,41 +1,96 @@
-import React, { useState } from 'react';
-import { View, Text, FlatList, TextInput, TouchableOpacity, StyleSheet, Image, ScrollView } from 'react-native';
-
-const eventsData = [
-  { id: '1', name: 'Football Match', type: 'Sports', location: 'Stadium', date: 'Dec 10', time: '7:00 PM', price: '$25', image: 'https://example.com/football.jpg' },
-  { id: '2', name: 'Food Festival', type: 'Food', location: 'City Park', date: 'Jan 15', time: '12:00 PM', price: 'Free', image: 'https://example.com/food.jpg' },
-  { id: '3', name: 'Live Concert', type: 'Entertainment', location: 'Music Arena', date: 'Dec 25', time: '9:00 PM', price: '$50', image: 'https://example.com/concert.jpg' },
-  { id: '4', name: 'Tech Workshop', type: 'Educational', location: 'University Hall', date: 'Feb 20', time: '10:00 AM', price: '$30', image: 'https://example.com/workshop.jpg' },
-  // Add more event items
-];
-
+import React, { useEffect, useState, useCallback } from 'react';
+import { View, Text, FlatList, TextInput, TouchableOpacity, StyleSheet, Image, ActivityIndicator } from 'react-native';
+import { getFirestore, collection, onSnapshot } from 'firebase/firestore';
+import { useFocusEffect } from '@react-navigation/native';
+// Define types
+type Event = {
+  id: string;
+  author: string;
+  coverImage: string;
+  description: string;
+  eventDate: Date;
+  eventName: string;
+  eventTime: Date;
+  eventType: string;
+  isFree: boolean;
+  location: {
+    latitude: number;
+    longitude: number;
+    locationName: string;
+  };
+  price: number;
+};
+const db = getFirestore();
 const eventTypes = ['All', 'Sports', 'Food', 'Entertainment', 'Educational'];
 
 export default function Explore({ navigation }) {
   const [searchQuery, setSearchQuery] = useState('');
-  const [selectedType, setSelectedType] = useState('All');
+  const [selectedType, setSelectedType] = useState<string>('All');
+  const [events, setEvents] = useState<Event[]>([]);
+  const [loading, setLoading] = useState<boolean>(true);
+  const [imageLoading, setImageLoading] = useState<boolean>(true);
 
-  const filteredEvents = eventsData.filter(event => {
-    const matchesType = selectedType === 'All' || event.type === selectedType;
-    const matchesSearch = event.name.toLowerCase().includes(searchQuery.toLowerCase());
+  // Fetch events from Firestore
+  useFocusEffect(
+    useCallback(() => {
+      const unsubscribe = onSnapshot(collection(db, 'events'), (snapshot) => {
+        const events: Event[] = snapshot.docs.map((doc) => ({
+          id: doc.id,
+          ...doc.data(),
+        })) as Event[];
+        console.log(events)
+        setEvents(events);
+        setLoading(false);
+      }, (error) => {
+        console.error("Error fetching events:", error);
+        setLoading(false);
+      });
+
+      return () => unsubscribe();
+    }, []))
+
+  // Filter events based on type and search query
+  const filteredEvents = events.filter((event) => {
+    const matchesType = selectedType === 'All' || event.eventType === selectedType;
+    const matchesSearch = event.eventName.toLowerCase().includes(searchQuery.toLowerCase());
     return matchesType && matchesSearch;
   });
 
   const renderEvent = ({ item }) => (
-    <TouchableOpacity style={styles.eventCard} onPress={() => navigation.navigate('EventDetails', { eventId: item.id })}>
-      <Image source={{ uri: item.image }} style={styles.eventImage} />
+    <TouchableOpacity
+      style={styles.eventCard}
+      onPress={() => navigation.navigate('EventDetails', { eventId: item.id })}
+    >
+      {imageLoading[item.id] && (
+        <ActivityIndicator size="large" color="#cade7f" style={styles.imageLoader} />
+      )}
+      <Image
+        source={{ uri: item.coverImage }}
+        style={[styles.eventImage, imageLoading[item.id] && { display: 'none' }]}
+        onLoadStart={() => setImageLoading((prev) => ({ ...prev, [item.id]: true }))}
+        onLoadEnd={() => setImageLoading((prev) => ({ ...prev, [item.id]: false }))}
+      />
       <View style={styles.eventInfo}>
         <View style={styles.eventDateContainer}>
-          <Text style={styles.eventDate}>{item.date}</Text>
+          <Text style={styles.eventDate}>{item.eventDate.toDate().toDateString()}</Text>
         </View>
-        <Text style={styles.eventName}>{item.name}</Text>
-        <Text style={styles.eventLocation}>{item.location} - {item.time}</Text>
+        <Text style={styles.eventName}>{item.eventName}</Text>
+        <Text style={styles.eventLocation}>{item.locationName} - {item.eventTime.toDate().toLocaleTimeString()}</Text>
         <View style={styles.priceContainer}>
-          <Text style={styles.eventPrice}>{item.price}</Text>
+          <Text style={styles.eventPrice}>{item.isFree ? 'Free' : `$${item.price}`}</Text>
         </View>
       </View>
     </TouchableOpacity>
   );
+
+  if (loading) {
+    return (
+      <View style={styles.loaderContainer}>
+        <ActivityIndicator size="large" color="#cade7f" />
+        <Text style={{ color: '#fff', marginTop: 10 }}>Loading Events...</Text>
+      </View>
+    );
+  }
 
   return (
     <View style={styles.container}>
@@ -45,7 +100,7 @@ export default function Explore({ navigation }) {
         placeholder="Search events..."
         placeholderTextColor="#888"
         value={searchQuery}
-        onChangeText={text => setSearchQuery(text)}
+        onChangeText={(text) => setSearchQuery(text)}
       />
 
       {/* Event Type Tabs */}
@@ -70,7 +125,10 @@ export default function Explore({ navigation }) {
         data={filteredEvents}
         keyExtractor={(item) => item.id}
         renderItem={renderEvent}
-        contentContainerStyle={{ paddingBottom: 20,marginTop:10 }}
+        contentContainerStyle={{ paddingBottom: 20, marginTop: 10 }}
+        ListEmptyComponent={
+          <Text style={{ color: '#fff', textAlign: 'center', marginTop: 20 }}>No events found</Text>
+        }
       />
     </View>
   );
@@ -93,12 +151,12 @@ const styles = StyleSheet.create({
   tabContainer: {
     paddingLeft: 15,
     paddingVertical: 10,
-    height:55
+    height: 55,
   },
   tab: {
     paddingVertical: 8,
     paddingHorizontal: 15,
-    height:35,
+    height: 35,
     borderRadius: 20,
     marginRight: 10,
     backgroundColor: '#333',
@@ -168,5 +226,17 @@ const styles = StyleSheet.create({
     color: '#333',
     fontSize: 14,
     fontWeight: 'bold',
+  },
+  loaderContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    backgroundColor:"#1c1c1c"
+  },
+  imageLoader: {
+    position: 'absolute',
+    top: 90,
+    left: '50%',
+    marginLeft: -25,
   },
 });

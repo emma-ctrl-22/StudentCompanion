@@ -1,13 +1,46 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { StyleSheet, Text, View, Image, ScrollView, TouchableOpacity, FlatList, TextInput } from 'react-native';
+import MapView, { Marker } from 'react-native-maps';
+import { doc, getDoc } from 'firebase/firestore';
+import { db } from '../../firebase'; // Importing Firestore instance from your custom firebase.ts file
 
-export default function EventDetails() {
-  const [comments, setComments] = useState([
+interface Comment {
+  id: string;
+  user: string;
+  text: string;
+}
+
+interface EventDetailsProps {
+  eventId: string;
+}
+
+export default function EventDetails({ eventId }: EventDetailsProps) {
+  const [eventData, setEventData] = useState<any>(null);
+  const [comments, setComments] = useState<Comment[]>([
     { id: '1', user: 'John Doe', text: 'This event sounds amazing!' },
     { id: '2', user: 'Jane Smith', text: 'Looking forward to it!' },
-    // Add more comments here or fetch dynamically
   ]);
   const [newComment, setNewComment] = useState('');
+
+  // Fetch event details from Firestore
+  useEffect(() => {
+    const fetchEventDetails = async () => {
+      console.log(eventId,'this is the id ')
+      try {
+        const eventDoc = await getDoc(doc(db, 'events', eventId));
+        if (eventDoc.exists()) {
+          console.log(eventDoc)
+          setEventData(eventDoc.data());
+        } else {
+          console.error('No event found with this ID');
+        }
+      } catch (error) {
+        console.error('Error fetching event details:', error);
+      }
+    };
+
+    fetchEventDetails();
+  }, [eventId]);
 
   const addComment = () => {
     if (newComment.trim()) {
@@ -16,7 +49,7 @@ export default function EventDetails() {
     }
   };
 
-  const renderComment = ({ item }) => (
+  const renderComment = ({ item }: { item: Comment }) => (
     <View style={styles.comment}>
       <Text style={styles.commentUser}>{item.user}</Text>
       <Text style={styles.commentText}>{item.text}</Text>
@@ -25,56 +58,79 @@ export default function EventDetails() {
 
   return (
     <ScrollView style={styles.container}>
-      <Image source={{ uri: 'https://example.com/oliver-tree.jpg' }} style={styles.eventImage} />
-      <View style={styles.eventDetails}>
-        <Text style={styles.eventTitle}>Oliver Tree</Text>
-        <Text style={styles.eventSubtitle}>Concert: Jakarta, Indonesia</Text>
-        <Text style={styles.eventPrice}>$45,90</Text>
-        <View style={styles.dateContainer}>
-          <Text style={styles.eventDate}>29</Text>
-          <View>
-            <Text style={styles.eventDay}>Tuesday</Text>
-            <Text style={styles.eventTime}>10:00 PM - End</Text>
+      {eventData && (
+        <>
+          <Image source={{ uri: eventData.imageUrl }} style={styles.eventImage} />
+          <View style={styles.eventDetails}>
+            <Text style={styles.eventTitle}>{eventData.title}</Text>
+            <Text style={styles.eventSubtitle}>{eventData.location}</Text>
+            <Text style={styles.eventPrice}>${eventData.price}</Text>
+            <View style={styles.dateContainer}>
+              <Text style={styles.eventDate}>{eventData.date}</Text>
+              <View>
+                <Text style={styles.eventDay}>{eventData.day}</Text>
+                <Text style={styles.eventTime}>{eventData.time}</Text>
+              </View>
+            </View>
+            <View style={styles.eventInfo}>
+              <Text style={styles.infoTitle}>About this event:</Text>
+              <Text style={styles.infoText}>{eventData.description}</Text>
+            </View>
+            <View style={styles.description}>
+              <Text style={styles.descriptionTitle}>Description</Text>
+              <Text style={styles.descriptionText}>{eventData.details}</Text>
+            </View>
           </View>
-        </View>
-        <View style={styles.eventInfo}>
-          <Text style={styles.infoTitle}>About this event:</Text>
-          <Text style={styles.infoText}>
-            When the concert Oliver Tree will be on stage in 10.00. List of songs: Forget It, When I'm Down, All That and Life Goes On which will be sung on the Bung Karno surge stage.
-          </Text>
-        </View>
-        <View style={styles.description}>
-          <Text style={styles.descriptionTitle}>Description</Text>
-          <Text style={styles.descriptionText}>🎤 Oliver Tree singing is Dec 29th at 10:00 PM</Text>
-          <Text style={styles.descriptionText}>📅 Meet and greet with Oliver Tree on Dec 30th</Text>
-        </View>
-      </View>
-      
-      <TouchableOpacity style={styles.ticketButton}>
-        <Text style={styles.ticketButtonText}>Attend</Text>
-      </TouchableOpacity>
 
-      <View style={styles.commentsSection}>
-        <Text style={styles.commentsTitle}>Comments</Text>
-        <FlatList
-          data={comments}
-          keyExtractor={(item) => item.id}
-          renderItem={renderComment}
-          style={styles.commentsList}
-        />
-        <View style={styles.addCommentContainer}>
-          <TextInput
-            style={styles.commentInput}
-            placeholder="Add a comment..."
-            placeholderTextColor="#888"
-            value={newComment}
-            onChangeText={setNewComment}
-          />
-          <TouchableOpacity onPress={addComment} style={styles.addCommentButton}>
-            <Text style={styles.addCommentButtonText}>Post</Text>
+          {/* Map showing event location */}
+          {eventData.coordinates && (
+            <MapView
+              style={styles.map}
+              initialRegion={{
+                latitude: eventData.coordinates.latitude,
+                longitude: eventData.coordinates.longitude,
+                latitudeDelta: 0.01,
+                longitudeDelta: 0.01,
+              }}
+            >
+              <Marker
+                coordinate={{
+                  latitude: eventData.coordinates.latitude,
+                  longitude: eventData.coordinates.longitude,
+                }}
+                title={eventData.title}
+                description={eventData.location}
+              />
+            </MapView>
+          )}
+
+          <TouchableOpacity style={styles.ticketButton}>
+            <Text style={styles.ticketButtonText}>Attend</Text>
           </TouchableOpacity>
-        </View>
-      </View>
+
+          <View style={styles.commentsSection}>
+            <Text style={styles.commentsTitle}>Comments</Text>
+            <FlatList
+              data={comments}
+              keyExtractor={(item) => item.id}
+              renderItem={renderComment}
+              style={styles.commentsList}
+            />
+            <View style={styles.addCommentContainer}>
+              <TextInput
+                style={styles.commentInput}
+                placeholder="Add a comment..."
+                placeholderTextColor="#888"
+                value={newComment}
+                onChangeText={setNewComment}
+              />
+              <TouchableOpacity onPress={addComment} style={styles.addCommentButton}>
+                <Text style={styles.addCommentButtonText}>Post</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </>
+      )}
     </ScrollView>
   );
 }
@@ -154,6 +210,11 @@ const styles = StyleSheet.create({
   descriptionText: {
     color: '#aaa',
     marginTop: 5,
+  },
+  map: {
+    width: '100%',
+    height: 200,
+    marginVertical: 20,
   },
   ticketButton: {
     backgroundColor: '#ff4757',
