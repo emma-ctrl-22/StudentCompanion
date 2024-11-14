@@ -14,7 +14,8 @@ interface EventDetailsProps {
   eventId: string;
 }
 
-export default function EventDetails({ eventId }: EventDetailsProps) {
+export default function EventDetails({ route }) {
+  const { eventId } = route.params;
   const [eventData, setEventData] = useState<any>(null);
   const [comments, setComments] = useState<Comment[]>([
     { id: '1', user: 'John Doe', text: 'This event sounds amazing!' },
@@ -25,12 +26,29 @@ export default function EventDetails({ eventId }: EventDetailsProps) {
   // Fetch event details from Firestore
   useEffect(() => {
     const fetchEventDetails = async () => {
-      console.log(eventId,'this is the id ')
+      console.log(eventId, 'this is the id ')
       try {
         const eventDoc = await getDoc(doc(db, 'events', eventId));
         if (eventDoc.exists()) {
-          console.log(eventDoc)
-          setEventData(eventDoc.data());
+          const data = eventDoc.data();
+          
+          // Extract latitude and longitude from the location object
+          const { latitude, longitude } = data.location;
+          const eventDate = new Date(
+            data.eventDate.seconds * 1000 + data.eventDate.nanoseconds / 1000000
+          );
+          const eventTime = new Date(
+            data.eventTime.seconds * 1000 + data.eventTime.nanoseconds / 1000000
+          );
+          
+          setEventData({
+            ...data,
+            latitude,
+            longitude,
+            formattedDate: eventDate.toLocaleDateString(),
+            formattedTime: eventTime.toLocaleTimeString(),
+          });
+          console.log('Event Data:', data);
         } else {
           console.error('No event found with this ID');
         }
@@ -60,18 +78,20 @@ export default function EventDetails({ eventId }: EventDetailsProps) {
     <ScrollView style={styles.container}>
       {eventData && (
         <>
-          <Image source={{ uri: eventData.imageUrl }} style={styles.eventImage} />
+          <Image source={{ uri: eventData.coverImage }} style={styles.eventImage} />
           <View style={styles.eventDetails}>
-            <Text style={styles.eventTitle}>{eventData.title}</Text>
-            <Text style={styles.eventSubtitle}>{eventData.location}</Text>
+            <Text style={styles.eventTitle}>{eventData.eventName}</Text>
+            <Text style={styles.eventSubtitle}>{eventData.locationName}</Text>
             <Text style={styles.eventPrice}>${eventData.price}</Text>
             <View style={styles.dateContainer}>
-              <Text style={styles.eventDate}>{eventData.date}</Text>
-              <View>
-                <Text style={styles.eventDay}>{eventData.day}</Text>
-                <Text style={styles.eventTime}>{eventData.time}</Text>
-              </View>
+            <Text style={styles.eventDate}>{eventData.formattedDate}</Text>
+            <View>
+              <Text style={styles.eventDay}>
+                {eventData.formattedDate.split(',')[0]}
+              </Text>
+              <Text style={styles.eventTime}>{eventData.formattedTime}</Text>
             </View>
+          </View>
             <View style={styles.eventInfo}>
               <Text style={styles.infoTitle}>About this event:</Text>
               <Text style={styles.infoText}>{eventData.description}</Text>
@@ -83,23 +103,23 @@ export default function EventDetails({ eventId }: EventDetailsProps) {
           </View>
 
           {/* Map showing event location */}
-          {eventData.coordinates && (
+          {eventData.latitude && eventData.longitude && (
             <MapView
               style={styles.map}
               initialRegion={{
-                latitude: eventData.coordinates.latitude,
-                longitude: eventData.coordinates.longitude,
+                latitude: eventData.latitude,
+                longitude: eventData.longitude,
                 latitudeDelta: 0.01,
                 longitudeDelta: 0.01,
               }}
             >
               <Marker
                 coordinate={{
-                  latitude: eventData.coordinates.latitude,
-                  longitude: eventData.coordinates.longitude,
+                  latitude: eventData.latitude,
+                  longitude: eventData.longitude,
                 }}
                 title={eventData.title}
-                description={eventData.location}
+                description={eventData.locationName}
               />
             </MapView>
           )}

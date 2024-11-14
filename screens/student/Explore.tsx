@@ -1,7 +1,7 @@
 import React, { useEffect, useState, useCallback } from 'react';
 import { View, Text, FlatList, TextInput, TouchableOpacity, StyleSheet, Image, ActivityIndicator } from 'react-native';
 import { getFirestore, collection, onSnapshot } from 'firebase/firestore';
-import { useFocusEffect } from '@react-navigation/native';
+import { useFocusEffect,useNavigation } from '@react-navigation/native';
 // Define types
 type Event = {
   id: string;
@@ -23,13 +23,13 @@ type Event = {
 const db = getFirestore();
 const eventTypes = ['All', 'Sports', 'Food', 'Entertainment', 'Educational'];
 
-export default function Explore({ navigation }) {
+export default function Explore() {
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedType, setSelectedType] = useState<string>('All');
   const [events, setEvents] = useState<Event[]>([]);
   const [loading, setLoading] = useState<boolean>(true);
   const [imageLoading, setImageLoading] = useState<boolean>(true);
-
+ const navigation = useNavigation()
   // Fetch events from Firestore
   useFocusEffect(
     useCallback(() => {
