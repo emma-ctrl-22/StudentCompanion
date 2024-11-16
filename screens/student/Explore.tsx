@@ -29,7 +29,7 @@ export default function Explore() {
   const [events, setEvents] = useState<Event[]>([]);
   const [loading, setLoading] = useState<boolean>(true);
   const [imageLoading, setImageLoading] = useState<boolean>(true);
- const navigation = useNavigation()
+ const navigation = useNavigation();
   // Fetch events from Firestore
   useFocusEffect(
     useCallback(() => {

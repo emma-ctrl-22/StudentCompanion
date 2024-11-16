@@ -1,9 +1,10 @@
 import React, { useEffect, useState } from 'react';
 import { StyleSheet, Text, View, Image, ScrollView, TouchableOpacity, FlatList, TextInput } from 'react-native';
 import MapView, { Marker } from 'react-native-maps';
-import { doc, getDoc } from 'firebase/firestore';
+import { doc, getDoc, setDoc } from 'firebase/firestore';
 import { db } from '../../firebase'; // Importing Firestore instance from your custom firebase.ts file
-
+import AsyncStorage from '@react-native-async-storage/async-storage';
+import Comments from '../../components/Comments';
 interface Comment {
   id: string;
   user: string;
@@ -14,6 +15,16 @@ interface EventDetailsProps {
   eventId: string;
 }
 
+// Helper function to get user UID from AsyncStorage
+const getUserUID = async () => {
+  const user = await AsyncStorage.getItem('user');
+  if (user) {
+    const parsedUser = JSON.parse(user);
+    return parsedUser.uid;
+  }
+  return null;
+};
+
 export default function EventDetails({ route }) {
   const { eventId } = route.params;
   const [eventData, setEventData] = useState<any>(null);
@@ -22,6 +33,9 @@ export default function EventDetails({ route }) {
     { id: '2', user: 'Jane Smith', text: 'Looking forward to it!' },
   ]);
   const [newComment, setNewComment] = useState('');
+  const [userUID, setUserUID] = useState<string | null>(null);
+  const [isAuthor, setIsAuthor] = useState(false);
+  const [isAttending, setIsAttending] = useState(false);
 
   // Fetch event details from Firestore
   useEffect(() => {
@@ -31,7 +45,7 @@ export default function EventDetails({ route }) {
         const eventDoc = await getDoc(doc(db, 'events', eventId));
         if (eventDoc.exists()) {
           const data = eventDoc.data();
-          
+
           // Extract latitude and longitude from the location object
           const { latitude, longitude } = data.location;
           const eventDate = new Date(
@@ -40,7 +54,7 @@ export default function EventDetails({ route }) {
           const eventTime = new Date(
             data.eventTime.seconds * 1000 + data.eventTime.nanoseconds / 1000000
           );
-          
+
           setEventData({
             ...data,
             latitude,
@@ -58,7 +72,49 @@ export default function EventDetails({ route }) {
     };
 
     fetchEventDetails();
-  }, [eventId]);
+
+    const checkAuthorAndAttendee = async () => {
+      try {
+        const uid = await getUserUID();
+        if (!uid) return;
+
+        setUserUID(uid);
+
+        // Check if the user is the author
+        if (eventData?.author === uid) {
+          setIsAuthor(true);
+          return;
+        }
+
+        // Check if the user has already attended this event
+        const attendeeDoc = await getDoc(doc(db, 'attendees', `${uid}_${eventId}`));
+        if (attendeeDoc.exists()) {
+          setIsAttending(true);
+        }
+      } catch (error) {
+        console.error('Error checking author/attendee status:', error);
+      }
+    };
+
+    checkAuthorAndAttendee();
+  }, [eventId,]);
+
+  const handleAttend = async () => {
+    if (!userUID || !eventId) return;
+
+    try {
+      await setDoc(doc(db, 'attendees', `${userUID}_${eventId}`), {
+        userId: userUID,
+        eventId: eventId,
+        timestamp: new Date(),
+      });
+      alert('You have successfully marked your attendance!');
+      setIsAttending(true);
+    } catch (error) {
+      console.error('Error saving attendance:', error);
+      alert('Failed to mark attendance. Please try again.');
+    }
+  };
 
   const addComment = () => {
     if (newComment.trim()) {
@@ -84,14 +140,14 @@ export default function EventDetails({ route }) {
             <Text style={styles.eventSubtitle}>{eventData.locationName}</Text>
             <Text style={styles.eventPrice}>${eventData.price}</Text>
             <View style={styles.dateContainer}>
-            <Text style={styles.eventDate}>{eventData.formattedDate}</Text>
-            <View>
-              <Text style={styles.eventDay}>
-                {eventData.formattedDate.split(',')[0]}
-              </Text>
-              <Text style={styles.eventTime}>{eventData.formattedTime}</Text>
+              <Text style={styles.eventDate}>{eventData.formattedDate}</Text>
+              <View>
+                <Text style={styles.eventDay}>
+                  {eventData.formattedDate.split(',')[0]}
+                </Text>
+                <Text style={styles.eventTime}>{eventData.formattedTime}</Text>
+              </View>
             </View>
-          </View>
             <View style={styles.eventInfo}>
               <Text style={styles.infoTitle}>About this event:</Text>
               <Text style={styles.infoText}>{eventData.description}</Text>
@@ -124,31 +180,13 @@ export default function EventDetails({ route }) {
             </MapView>
           )}
 
-          <TouchableOpacity style={styles.ticketButton}>
-            <Text style={styles.ticketButtonText}>Attend</Text>
-          </TouchableOpacity>
+          {!isAuthor && !isAttending && (
+            <TouchableOpacity style={styles.ticketButton} onPress={handleAttend}>
+              <Text style={styles.ticketButtonText}>Attend</Text>
+            </TouchableOpacity>
+          )}
 
-          <View style={styles.commentsSection}>
-            <Text style={styles.commentsTitle}>Comments</Text>
-            <FlatList
-              data={comments}
-              keyExtractor={(item) => item.id}
-              renderItem={renderComment}
-              style={styles.commentsList}
-            />
-            <View style={styles.addCommentContainer}>
-              <TextInput
-                style={styles.commentInput}
-                placeholder="Add a comment..."
-                placeholderTextColor="#888"
-                value={newComment}
-                onChangeText={setNewComment}
-              />
-              <TouchableOpacity onPress={addComment} style={styles.addCommentButton}>
-                <Text style={styles.addCommentButtonText}>Post</Text>
-              </TouchableOpacity>
-            </View>
-          </View>
+          <Comments eventId={eventId}/>
         </>
       )}
     </ScrollView>

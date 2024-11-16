@@ -1,62 +1,146 @@
-import React from 'react';
-import { StyleSheet, Text, View, ScrollView, Image, TouchableOpacity, FlatList } from 'react-native';
+import React, { useEffect, useState } from 'react';
+import { StyleSheet, Text, View, TouchableOpacity, FlatList, Image, ActivityIndicator } from 'react-native';
 import Feather from '@expo/vector-icons/Feather';
+import { useNavigation } from '@react-navigation/native';
+import { getAuth } from 'firebase/auth';
+import { collection, query, where, getDocs ,getDoc,doc} from 'firebase/firestore';
+import { db } from '../../firebase'; // Adjust import based on your project
+import AsyncStorage from '@react-native-async-storage/async-storage';
 
-const events = [
-  {
-    id: '1',
-    name: 'Oliver Tree Concert',
-    location: 'Jakarta, Indonesia',
-    date: 'Dec 29',
-    time: '10:00 PM',
-    price: '$45.90',
-    image: 'https://example.com/event1.jpg', // Replace with actual image URLs
-  },
-  {
-    id: '2',
-    name: 'Halloween Party',
-    location: 'Bandung, Indonesia',
-    date: 'Mar 22',
-    time: '9:00 PM',
-    price: 'Free',
-    image: 'https://example.com/event2.jpg',
-  },
-  // Add more events here
-];
+interface Event {
+  id: string;
+  eventName: string;
+  eventType: string;
+  eventDate: Date;
+  eventTime: Date;
+  description: string;
+}
 
-export default function MyEvents({ navigation }) {
+const MyEventsScreen = () => {
+  const [activeTab, setActiveTab] = useState<'MyEvents' | 'RSVPd'>('MyEvents');
+  const [myEvents, setMyEvents] = useState<Event[]>([]);
+  const [rsvpEvents, setRsvpEvents] = useState<Event[]>([]);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState('');
+  const currentUser = getAuth().currentUser;
+ const navigation = useNavigation()
+  useEffect(() => {
+    fetchAllEvents();
+  }, []);
+
+  const fetchAllEvents = async () => {
+    setLoading(true);
+    setError('');
+    console.log('Fetching all events...');
+    try {
+      const user = await AsyncStorage.getItem('user');
+      const parsedUser = JSON.parse(user);
+      const uid = parsedUser.uid;
+
+      // Fetch My Events
+      const myEventsQuery = query(collection(db, 'events'), where('author', '==', uid));
+      const myEventsSnapshot = await getDocs(myEventsQuery);
+      const myEventsData = myEventsSnapshot.docs.map((doc) => {
+        const data = doc.data();
+        return {
+          id: doc.id,
+          eventName: data.eventName,
+          eventType: data.eventType,
+          eventDate: data.eventDate?.toDate(),
+          eventTime: data.eventTime?.toDate(),
+          description: data.description,
+        };
+      });
+      console.log('My Events Data:', myEventsData);
+      setMyEvents(myEventsData);
+
+      // Fetch RSVP'd Events
+      const rsvpQuery = query(collection(db, 'attendees'), where('userId', '==', uid));
+      const rsvpSnapshot = await getDocs(rsvpQuery);
+      const eventIds = rsvpSnapshot.docs.map((doc) => doc.data().eventId);
+      console.log('RSVP Event IDs:', eventIds);
+
+      const rsvpdEventsData = [];
+      for (const eventId of eventIds) {
+        const eventDocRef = doc(db, 'events', eventId);
+        const eventDoc = await getDoc(eventDocRef);
+        if (eventDoc.exists()) {
+          const data = eventDoc.data();
+          rsvpdEventsData.push({
+            id: eventDoc.id,
+            eventName: data.eventName,
+            eventType: data.eventType,
+            eventDate: data.eventDate?.toDate(),
+            eventTime: data.eventTime?.toDate(),
+            description: data.description,
+            coverImage: data.coverImage,
+            locationName: data.locationName,
+          });
+        }
+      }
+      setRsvpEvents(rsvpdEventsData)
+      console.log('RSVP’d Events Data:', rsvpdEventsData);
+
+      console.log('My Events:', myEvents);
+    } catch (err) {
+      setError('Failed to fetch events. Please try again.');
+      console.error('Error fetching events:', err);
+    } finally {
+      setLoading(false);
+    }
+  };
+
   const renderEvent = ({ item }) => (
     <TouchableOpacity style={styles.eventCard} onPress={() => navigation.navigate('EventDetails', { eventId: item.id })}>
-      <Image source={{ uri: item.image }} style={styles.eventImage} />
+      <Image source={{ uri: item.coverImage }} style={styles.eventImage} />
       <View style={styles.eventInfo}>
-        <View style={styles.eventDateContainer}>
-          <Text style={styles.eventDate}>{item.date}</Text>
-        </View>
-        <Text style={styles.eventName}>{item.name}</Text>
-        <Text style={styles.eventLocation}>{item.location} - {item.time}</Text>
-        <View style={styles.priceContainer}>
-          <Text style={styles.eventPrice}>{item.price}</Text>
-        </View>
+        <Text style={styles.eventName}>{item.eventName}</Text>
+        <Text style={styles.eventType}>{item.eventType}</Text>
+        <Text style={styles.eventDate}>{item.eventDate ? item.eventDate.toLocaleDateString() : ''}</Text>
+        <Text style={styles.eventLocation}>{item.locationName}</Text>
       </View>
     </TouchableOpacity>
   );
 
+  const renderContent = () => {
+    if (loading) return <ActivityIndicator size="large" color="#ffffff" />;
+    if (error) return <Text style={styles.errorText}>{error}</Text>;
+
+    const data = activeTab === 'MyEvents' ? myEvents : rsvpEvents;
+    if (data.length === 0)
+      return <Text style={styles.emptyText}>{activeTab === 'MyEvents' ? 'No events created by you.' : 'No events RSVP’d by you.'}</Text>;
+
+    return <FlatList data={data} renderItem={renderEvent} keyExtractor={(item) => item.id} />;
+  };
+
   return (
     <View style={styles.container}>
       <View style={styles.header}>
-        <Feather name="arrow-left" size={24} color="#fff" onPress={() => navigation.goBack()} />
+        <Feather name="arrow-left" size={24} color="#fff" onPress={() => useNavigation().goBack()} />
         <Text style={styles.headerTitle}>My Events</Text>
       </View>
-     
-        <FlatList
-          data={events}
-          renderItem={renderEvent}
-          keyExtractor={(item) => item.id}
-          contentContainerStyle={styles.eventsList}
-        />
+
+      {/* Custom Tabs */}
+      <View style={styles.tabsContainer}>
+        <TouchableOpacity
+          style={[styles.tab, activeTab === 'MyEvents' && styles.activeTab]}
+          onPress={() => setActiveTab('MyEvents')}
+        >
+          <Text style={styles.tabText}>My Events</Text>
+        </TouchableOpacity>
+        <TouchableOpacity
+          style={[styles.tab, activeTab === 'RSVPd' && styles.activeTab]}
+          onPress={() => setActiveTab('RSVPd')}
+        >
+          <Text style={styles.tabText}>RSVP’d</Text>
+        </TouchableOpacity>
+      </View>
+
+      {/* Events List */}
+      <View style={styles.contentContainer}>{renderContent()}</View>
     </View>
   );
-}
+};
 
 const styles = StyleSheet.create({
   container: {
@@ -68,7 +152,6 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     paddingVertical: 15,
     paddingHorizontal: 20,
-    backgroundColor: '#1c1c1c',
   },
   headerTitle: {
     color: '#fff',
@@ -76,66 +159,67 @@ const styles = StyleSheet.create({
     fontWeight: 'bold',
     marginLeft: 10,
   },
-  contentContainer: {
-    paddingHorizontal: 15,
-    paddingBottom: 20,
+  tabsContainer: {
+    flexDirection: 'row',
+    justifyContent: 'space-around',
+    marginVertical: 10,
   },
-  eventsList: {
-    paddingTop: 10,
+  tab: {
+    paddingVertical: 10,
+    paddingHorizontal: 20,
+  },
+  activeTab: {
+    borderBottomWidth: 2,
+    borderBottomColor: '#dc4904',
+  },
+  tabText: {
+    color: '#fff',
+    fontSize: 16,
+  },
+  contentContainer: {
+    flex: 1,
+    paddingHorizontal: 15,
   },
   eventCard: {
     backgroundColor: '#706656',
     borderRadius: 10,
     overflow: 'hidden',
-    marginBottom: 20,
-    marginHorizontal: 15,
-    paddingVertical: 20,
+    marginBottom: 15,
   },
   eventImage: {
     width: '100%',
     height: 180,
-    resizeMode: 'cover',
   },
   eventInfo: {
     padding: 15,
-  },
-  eventDateContainer: {
-    position: 'absolute',
-    top: -15,
-    right: 15,
-    backgroundColor: '#dc4904',
-    borderRadius: 20,
-    paddingHorizontal: 10,
-    paddingVertical: 5,
-  },
-  eventDate: {
-    color: '#fff',
-    fontSize: 14,
-    fontWeight: 'bold',
   },
   eventName: {
     color: '#cade7f',
     fontSize: 18,
     fontWeight: 'bold',
-    marginTop: 10,
   },
-  eventLocation: {
+  eventType: {
     color: '#a0a0a0',
     fontSize: 14,
-    marginTop: 5,
   },
-  priceContainer: {
-    position: 'absolute',
-    bottom: -15,
-    right: 15,
-    backgroundColor: '#f1f1f1',
-    borderRadius: 20,
-    paddingHorizontal: 10,
-    paddingVertical: 5,
-  },
-  eventPrice: {
-    color: '#333',
+  eventDate: {
+    color: '#fff',
     fontSize: 14,
-    fontWeight: 'bold',
+  },
+  eventLocation: {
+    color: '#fff',
+    fontSize: 14,
+  },
+  errorText: {
+    color: '#f00',
+    textAlign: 'center',
+    marginTop: 20,
+  },
+  emptyText: {
+    color: '#fff',
+    textAlign: 'center',
+    marginTop: 20,
   },
 });
+
+export default MyEventsScreen;
