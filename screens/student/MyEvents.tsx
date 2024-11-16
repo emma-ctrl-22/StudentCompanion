@@ -2,7 +2,6 @@ import React, { useEffect, useState } from 'react';
 import { StyleSheet, Text, View, TouchableOpacity, FlatList, Image, ActivityIndicator } from 'react-native';
 import Feather from '@expo/vector-icons/Feather';
 import { useNavigation } from '@react-navigation/native';
-import { getAuth } from 'firebase/auth';
 import { collection, query, where, getDocs ,getDoc,doc} from 'firebase/firestore';
 import { db } from '../../firebase'; // Adjust import based on your project
 import AsyncStorage from '@react-native-async-storage/async-storage';
@@ -22,7 +21,7 @@ const MyEventsScreen = () => {
   const [rsvpEvents, setRsvpEvents] = useState<Event[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
-  const currentUser = getAuth().currentUser;
+ 
  const navigation = useNavigation()
   useEffect(() => {
     fetchAllEvents();

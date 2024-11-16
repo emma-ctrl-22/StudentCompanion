@@ -1,16 +1,90 @@
 import { StyleSheet, Text, View, SafeAreaView, TextInput, TouchableOpacity } from 'react-native';
-import React, { useState } from 'react';
+import React, { useState, useCallback } from 'react';
 import Feather from '@expo/vector-icons/Feather';
 import MaterialIcons from '@expo/vector-icons/MaterialIcons';
 import { Calendar } from 'react-native-calendars';
 import dayjs from 'dayjs';
-import { useNavigation } from '@react-navigation/native';
+import { useNavigation, useFocusEffect } from '@react-navigation/native';
+import { collection, query, where, getDocs, getDoc, doc } from 'firebase/firestore';
+import { db } from '../../firebase'; // Adjust import based on your project
+import AsyncStorage from '@react-native-async-storage/async-storage';
 
 export default function Home() {
   const [currentDate, setCurrentDate] = useState(dayjs().format('YYYY-MM-DD'));
   const handleMonthChange = (date: string) => {
     setCurrentDate(date);
   };
+  const [Loading, setLoading] = useState(false)
+  const [Error, setError] = useState('')
+  const [markedDates, setMarkedDates] = useState('')
+  useFocusEffect(
+    useCallback(() => {
+      fetchEvents()
+    }, [])
+  )
+
+  const fetchEvents = async () => {
+    setLoading(true);
+    setError('');
+    try {
+      const user = await AsyncStorage.getItem('user');
+      const parsedUser = JSON.parse(user);
+      const uid = parsedUser.uid;
+
+      // Fetch My Events (created by user)
+      const myEventsQuery = query(collection(db, 'events'), where('author', '==', uid));
+      const myEventsSnapshot = await getDocs(myEventsQuery);
+      const myEventsData = myEventsSnapshot.docs.map((doc) => {
+        const data = doc.data();
+        return {
+          id: doc.id,
+          eventDate: data.eventDate?.toDate().toISOString().split('T')[0], // Format date as 'YYYY-MM-DD'
+        };
+      });
+      console.log('My Events Data:', myEventsData);
+
+      // Fetch RSVP’d Events (attended by user)
+      const rsvpQuery = query(collection(db, 'attendees'), where('userId', '==', uid));
+      const rsvpSnapshot = await getDocs(rsvpQuery);
+      const eventIds = rsvpSnapshot.docs.map((doc) => doc.data().eventId);
+      console.log('RSVP Event IDs:', eventIds);
+
+      const rsvpdEventsData = [];
+      for (const eventId of eventIds) {
+        const eventDocRef = doc(db, 'events', eventId);
+        const eventDoc = await getDoc(eventDocRef);
+        if (eventDoc.exists()) {
+          const data = eventDoc.data();
+          rsvpdEventsData.push({
+            id: eventDoc.id,
+            eventDate: data.eventDate?.toDate().toISOString().split('T')[0],
+          });
+        }
+      }
+      console.log('RSVP’d Events Data:', rsvpdEventsData);
+
+      // Combine the dates from both lists
+      const allEventDates = [
+        ...myEventsData.map((event) => event.eventDate),
+        ...rsvpdEventsData.map((event) => event.eventDate),
+      ];
+
+      // Create marked dates object
+      const markedDates = allEventDates.reduce((acc, date) => {
+        acc[date] = { marked: true, dotColor: '#e1d27c', activeOpacity: 0.7 };
+        return acc;
+      }, {});
+      console.log('Marked Dates:', markedDates);
+
+      setMarkedDates(markedDates);
+    } catch (err) {
+      setError('Failed to fetch events. Please try again.');
+      console.error('Error fetching events:', err);
+    } finally {
+      setLoading(false);
+    }
+  };
+
   const navigation = useNavigation();
   return (
     <SafeAreaView style={styles.container}>
@@ -19,30 +93,30 @@ export default function Home() {
         <TouchableOpacity style={styles.icon}>
           <Feather name="search" size={24} color="#cade7f" />
         </TouchableOpacity>
-        <TouchableOpacity onPress={()=>navigation.navigate('create')} style={styles.icon}>
+        <TouchableOpacity onPress={() => navigation.navigate('create')} style={styles.icon}>
           <Feather name="plus" size={24} color="white" />
         </TouchableOpacity>
       </View>
       <View style={styles.options}>
         <View style={styles.top}>
           <View style={styles.inner}>
-            <TouchableOpacity onPress={()=>navigation.navigate('explore')} style={styles.lT}>
+            <TouchableOpacity onPress={() => navigation.navigate('explore')} style={styles.lT}>
               <Text style={{ fontSize: 25, textAlign: "center" }}>Explore</Text>
               {/* <FontAwesome name="wpexplorer" size={40} color="black" /> */}
             </TouchableOpacity>
 
-            <TouchableOpacity onPress={()=>navigation.navigate('myevent')} style={styles.lB}>
+            <TouchableOpacity onPress={() => navigation.navigate('myevent')} style={styles.lB}>
               <Text style={{ fontSize: 18, fontWeight: "400" }}>My Events</Text>
             </TouchableOpacity>
           </View>
           <View style={styles.inner}>
-            <TouchableOpacity onPress={()=>navigation.navigate('Note')} style={styles.RT}>
+            <TouchableOpacity onPress={() => navigation.navigate('Note')} style={styles.RT}>
               <Text style={{ fontWeight: "bold" }}>Notes</Text>
               <Text style={{ fontWeight: "300", fontSize: 23 }}>Write down personal notes</Text>
             </TouchableOpacity>
 
             <View style={styles.RB}>
-              <TouchableOpacity onPress={()=>navigation.navigate('create')} style={styles.Button1}>
+              <TouchableOpacity onPress={() => navigation.navigate('create')} style={styles.Button1}>
                 <Feather name="plus" size={44} color="white" />
               </TouchableOpacity>
               <TouchableOpacity style={styles.Button2}>
@@ -51,28 +125,27 @@ export default function Home() {
             </View>
           </View>
         </View>
-        <TouchableOpacity onPress={()=>navigation.navigate('calendar')} style={styles.down}>
-
+        <TouchableOpacity onPress={() => navigation.navigate('calendar')} style={styles.down}>
           <Calendar
             current={currentDate}
-            onDayPress={(day) => console.log("Selected Date: ", day.dateString)}
+            onDayPress={(day) => console.log('Selected Date: ', day.dateString)}
             onMonthChange={(month) => handleMonthChange(month.dateString)}
+            markedDates={markedDates}
             theme={{
               backgroundColor: '#673ceb',
               calendarBackground: '#673ceb',
               textSectionTitleColor: '#cade7f',
-              dayTextColor: '#cade7f',
-              monthTextColor: '#cade7f',
-              selectedDayBackgroundColor: '#e1d27c',
-              selectedDayTextColor: '#1f1f1f',
-              arrowColor: '#cade7f',
+              dayTextColor: '#fff',
+              monthTextColor: '#fff',
+              arrowColor: '#e1d27c',
               todayTextColor: '#cade7f',
             }}
             style={{
               borderRadius: 10,
-              width: '100%'
+              width: '100%',
             }}
           />
+
         </TouchableOpacity>
       </View>
     </SafeAreaView>
@@ -125,7 +198,6 @@ const styles = StyleSheet.create({
     height: "40%",
     borderRadius: 20,
     display: "flex",
-   
   },
   inner: {
     height: "100%",
