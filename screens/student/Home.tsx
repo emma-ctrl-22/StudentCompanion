@@ -132,12 +132,14 @@ export default function Home() {
             onMonthChange={(month) => handleMonthChange(month.dateString)}
             markedDates={markedDates}
             theme={{
-              backgroundColor: '#673ceb',
-              calendarBackground: '#673ceb',
+              backgroundColor: '#633be9',
+              calendarBackground: '#633be9',
               textSectionTitleColor: '#cade7f',
-              dayTextColor: '#fff',
-              monthTextColor: '#fff',
-              arrowColor: '#e1d27c',
+              dayTextColor: '#cade7f',
+              monthTextColor: '#cade7f',
+              selectedDayBackgroundColor: '#cade7f',
+              selectedDayTextColor: '#1f1f1f',
+              arrowColor: '#cade7f',
               todayTextColor: '#cade7f',
             }}
             style={{
@@ -145,7 +147,6 @@ export default function Home() {
               width: '100%',
             }}
           />
-
         </TouchableOpacity>
       </View>
     </SafeAreaView>
