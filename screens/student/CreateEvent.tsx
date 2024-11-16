@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { StyleSheet, Text, View, TextInput, TouchableOpacity, ScrollView, Image, Alert, ActivityIndicator } from 'react-native';
+import { StyleSheet, Text, View, TextInput, TouchableOpacity, ScrollView, Image, Alert, ActivityIndicator,Platform ,KeyboardAvoidingView} from 'react-native';
 import * as ImagePicker from 'expo-image-picker';
 import * as Location from 'expo-location';
 import MapView, { Marker } from 'react-native-maps';
@@ -186,6 +186,7 @@ export default function CreateEvent() {
   };
 
   return (
+    <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === 'ios' ? 'padding' : 'height'}>
     <ScrollView contentContainerStyle={styles.container}>
       <View style={styles.header}>
         <Feather name="arrow-left" size={24} color="#fff" onPress={() => navigation.goBack()} />
@@ -268,7 +269,7 @@ export default function CreateEvent() {
 
       {showMap && (
         <MapView
-          style={styles.map}
+          style={styles.fullScreenMap}
           initialRegion={{
             latitude: location ? location.latitude : 37.78825,
             longitude: location ? location.longitude : -122.4324,
@@ -281,6 +282,7 @@ export default function CreateEvent() {
         </MapView>
       )}
     </ScrollView>
+    </KeyboardAvoidingView>
   );
 }
 
@@ -357,10 +359,7 @@ const styles = StyleSheet.create({
     fontSize: 18,
     fontWeight: 'bold',
   },
-  map: {
-    width: '100%',
-    height: 200,
-    marginTop: 16,
-    borderRadius: 8,
+  fullScreenMap: {
+    ...StyleSheet.absoluteFillObject,
   },
 });
