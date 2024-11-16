@@ -1,16 +1,19 @@
-import { StyleSheet, Text, View, SafeAreaView, FlatList } from 'react-native';
+import { StyleSheet, Text, View, SafeAreaView, FlatList ,TouchableOpacity } from 'react-native';
 import React, { useState, useEffect } from 'react';
 import { Calendar } from 'react-native-calendars';
 import dayjs from 'dayjs';
 import { db } from '../../firebase'; // Adjust the import as per your configuration
 import { collection, query, where, getDocs, doc, getDoc } from 'firebase/firestore';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import { useNavigation } from '@react-navigation/native';
 
 export default function CalendarPage() {
   const [currentDate, setCurrentDate] = useState(dayjs().format('YYYY-MM-DD'));
   const [filteredEvents, setFilteredEvents] = useState([]);
   const [markedDates, setMarkedDates] = useState({});
   const [events, setEvents] = useState([]);
+
+  const navigation = useNavigation()
 
   // Fetch events created by the user and RSVP'd events
   const fetchEvents = async () => {
@@ -79,11 +82,11 @@ export default function CalendarPage() {
   };
 
   const renderEvent = ({ item }) => (
-    <View style={styles.eventCard}>
+    <TouchableOpacity style={styles.eventCard} onPress={() => navigation.navigate('EventDetails', { eventId: item.id })}>
       <Text style={styles.eventName}>{item.eventName}</Text>
       {/* <Text style={styles.eventTime}>{item.time}</Text> */}
       <Text style={styles.eventLocation}>{item.locationName}</Text>
-    </View>
+    </TouchableOpacity>
   );
 
   return (
